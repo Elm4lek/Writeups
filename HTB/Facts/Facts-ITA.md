@@ -1,6 +1,6 @@
 # Facts — HackTheBox Writeup
 
-> **Difficoltà:** Media  
+> **Difficoltà:** Facile  
 > **OS:** Linux (Ubuntu 25.04)  
 > **Categoria:** Web, Privilege Escalation  
 > **CVE Coinvolte:** CVE-2025-2304, CVE-2024-46987

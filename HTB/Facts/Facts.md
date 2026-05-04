@@ -7,7 +7,7 @@
 
 ---
 
-## 📋 Overview
+## Overview
 
 The **Facts** machine hosts an installation of **Camaleon CMS 2.9.0** affected by two critical vulnerabilities:
 - **CVE-2025-2304** — Authenticated Privilege Escalation via Mass Assignment
@@ -17,7 +17,7 @@ Initial access is achieved by extracting AWS credentials from the CMS and using 
 
 ---
 
-## 🔍 Phase 1 — Enumeration
+## Phase 1 — Enumeration
 
 ### Port Scan
 
@@ -48,7 +48,7 @@ X-Amz-Id-2
 
 ---
 
-## 🌐 Phase 2 — CMS Initial Access
+## Phase 2 — CMS Initial Access
 
 ### Registration and Login
 
@@ -66,7 +66,7 @@ After logging in, the **Camaleon CMS version 2.9.0** admin panel is accessible.
 
 ---
 
-## ⚠️ Phase 3 — CVE-2025-2304: Privilege Escalation (Mass Assignment)
+## Phase 3 — CVE-2025-2304: Privilege Escalation (Mass Assignment)
 
 ### Vulnerability Details
 
@@ -124,7 +124,7 @@ The exploit includes a `-e` flag to extract AWS credentials stored in the CMS se
 
 ---
 
-## 🪣 Phase 4 — MinIO Access and SSH Key Retrieval
+## Phase 4 — MinIO Access and SSH Key Retrieval
 
 ### AWS CLI Configuration
 
@@ -184,7 +184,7 @@ chmod 600 id_ed25519
 
 ---
 
-## 👤 Phase 5 — User Enumeration via CVE-2024-46987
+## Phase 5 — User Enumeration via CVE-2024-46987
 
 ### Vulnerability Details
 
@@ -214,7 +214,7 @@ william:x:1001:1001::/home/william:/bin/bash
 
 ---
 
-## 🔐 Phase 6 — SSH Access and Passphrase Cracking
+## Phase 6 — SSH Access and Passphrase Cracking
 
 ### Initial SSH Attempt
 
@@ -280,7 +280,7 @@ cd8d5***************************
 
 ---
 
-## 🔺 Phase 7 — Privilege Escalation to Root (Facter Abuse)
+## Phase 7 — Privilege Escalation to Root (Facter Abuse)
 
 ### Local Enumeration
 
@@ -354,7 +354,7 @@ cfcf8***************************
 
 ---
 
-## 📊 Attack Summary
+## Attack Summary
 
 ```
 [Register account on CMS]
@@ -378,7 +378,7 @@ cfcf8***************************
 
 ---
 
-## 🛠️ Tools Used
+## Tools Used
 
 | Tool                         | Purpose                                           |
 | ---------------------------- | ------------------------------------------------- |
@@ -390,7 +390,7 @@ cfcf8***************************
 | `facter`                     | Privilege escalation to root                      |
 
 ---
-## 📚 Lessons Learned  
+## Lessons Learned  
   
 - Misconfigured storage backends can expose critical data  
 - Web vulnerabilities often lead to full system compromise  
